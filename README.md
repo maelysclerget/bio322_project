@@ -25,7 +25,7 @@ Maëlys Clerget & Alice Priolet
 
 ## Code organisation 
 
-- **`data_inspection.ipynb`**: 
+- **`data_visualization.ipynb`**: 
 - **`preprocessing.ipynb`**: 
 - **`train_linear.ipynb`**: 
 - **`train_non_linear.ipynb`**: 
