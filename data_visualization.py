@@ -24,11 +24,12 @@ def plot_variance():
     plt.xlabel('Variance')
     plt.ylabel('Feature')
     plt.show()
+    plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/variance.png')
     
 #plot avec et sans log transformation    
-def plot_response_variable(apply_y_transformation=False):
+def plot_response_variable(apply_y_transformation=True):
     
-    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=True)
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=False)
 
     if apply_y_transformation:
         y_train = apply_log_transformation(y_train)
@@ -38,9 +39,11 @@ def plot_response_variable(apply_y_transformation=False):
     plt.title('Distribution of Response Variable (PURITY)')
     plt.xlabel('PURITY')
     plt.ylabel('Frequency')
-    plt.xlim(0, 10)
+    #plt.xlim(0, 10)
+    plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/response_variable_log.png')
     plt.show()
-    
+
+
 def plot_boxplot(title, ax=None):
     """
     Function to calculate summary statistics and plot a boxplot for numeric columns in a DataFrame.
@@ -78,3 +81,35 @@ def plot_boxplot(title, ax=None):
         print(f'PURITY is not a numeric column. Skipping boxplot.\n')
         
 #Ne pas oublier le mettre le plot de correlation matrix dans preprocessing.py 
+""" def print_mse_results():
+    # Define the paths to the files containing the MSE results
+    mse_files = {
+        'ElasticNet': '/Users/maelysclerget/Desktop/ML/bio322_project/elasticnet_regression.py',
+        'Ridge': '/Users/maelysclerget/Desktop/ML/bio322_project/ridge_regression.py',
+        'Lasso': '/Users/maelysclerget/Desktop/ML/bio322_project/lasso_regression.py',
+        'Huber': '/Users/maelysclerget/Desktop/ML/bio322_project/huber_regression.py',
+        'OMP': '/Users/maelysclerget/Desktop/ML/bio322_project/OMP.py',
+        'Linear': '/Users/maelysclerget/Desktop/ML/bio322_project/linear_regression.py',
+        'Polynomial': '/Users/maelysclerget/Desktop/ML/bio322_project/polynomial_regression.py',
+        'BayesianRidge': '/Users/maelysclerget/Desktop/ML/bio322_project/bayesian_ridge_regression.py',
+        'RandomForest': '/Users/maelysclerget/Desktop/ML/bio322_project/RF_regression.py'
+    }
+    
+    # Read and print the MSE results from each file
+    for model_name, file_path in mse_files.items():
+        mse_data = pd.read_csv(file_path)
+        train_mse = mse_data['train_mse'].values[0]
+        test_mse = mse_data['test_mse'].values[0]
+        print(f'{model_name} - Training MSE: {train_mse:.4f}, Test MSE: {test_mse:.4f}')
+
+if __name__ == '__main__':
+    print_mse_results() """
+    
+def main():
+    plot_variance()
+    plot_response_variable()
+    plot_boxplot()
+    
+if __name__ == '__main__':
+    main()
+    

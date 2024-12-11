@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, RobustScaler
 from sklearn.decomposition import PCA
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -9,37 +9,22 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import SelectFromModel
 from scipy.stats import chi2
 from sklearn.linear_model import LinearRegression
+from sklearn.mixture import GaussianMixture
+from scipy.stats import norm
+from scipy.signal import savgol_filter
+from scipy.stats import zscore
 
-def remove_outliers_mahalanobis(data, threshold=0.99):
-    """
-    Remove multivariate outliers using Mahalanobis distance.
     
-    Parameters:
-    - data: DataFrame of numeric features.
-    - threshold: Chi-squared threshold for outlier removal (default 0.99).
-    
-    Returns:
-    - DataFrame without outliers.
-    """
-    cov_matrix = np.cov(data, rowvar=False)
-    inv_cov_matrix = np.linalg.inv(cov_matrix)
-    mean_vec = data.mean(axis=0)
-    
-    def mahalanobis(x):
-        diff = x - mean_vec
-        return np.sqrt(diff.T @ inv_cov_matrix @ diff)
-    
-    mahalanobis_distances = data.apply(mahalanobis, axis=1)
-    chi2_threshold = chi2.ppf(threshold, df=data.shape[1])
-    non_outliers = mahalanobis_distances <= np.sqrt(chi2_threshold)
-    
-    return data[non_outliers].reset_index(drop=True)
-    
-def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, apply_correlation=False, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=False):
+def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
+                     apply_correlation=False, apply_remove_outliers=False, 
+                     apply_variance_threshold=False, apply_random_forest=False, 
+                     apply_robust_scaling=False, apply_savgol=False):   
     train_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/train.csv')
     test_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/test.csv')
+   
     train_data = train_data_og.copy()
     test_data = test_data_og.copy()
+    
     train_data = train_data.drop(columns=['prod_substance'])
     test_data = test_data.drop(columns=['prod_substance'])
     
@@ -66,12 +51,51 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
         train_data_combined = train_data
         test_data_combined = test_data  
         
-    if apply_remove_outliers:
+    """ if apply_remove_outliers:
         
         non_outlier_indices = remove_outliers_mahalanobis(train_data_combined[wavelength_cols]).index
         train_data_combined = train_data_combined.loc[non_outlier_indices].reset_index(drop=True)
-        print(f"After Mahalanobis outlier removal, train data shape: {train_data_combined.shape}") 
+        print(f"After Mahalanobis outlier removal, train data shape: {train_data_combined.shape}")  """
+        
+    if apply_remove_outliers:
+        # Applying Gaussian Mixture Model (GMM) for outlier detection
+        def remove_outliers_with_gmm(data, cols):
+            gmm = GaussianMixture(n_components=2, covariance_type='full', random_state=42)
+            gmm.fit(data[cols])
+            probabilities = gmm.predict_proba(data[cols])
             
+            # Mark samples with low probabilities as outliers
+            outlier_flag = probabilities.max(axis=1) < 0.5  # Threshold for outliers
+            return data[~outlier_flag]  # Keep only inliers
+
+        # Applying Bayesian outlier detection
+        def remove_outliers_with_bayesian(data, cols):
+            z_scores = (data[cols] - data[cols].mean()) / data[cols].std()
+            probabilities = norm.cdf(z_scores)  # Assuming a Gaussian distribution
+
+            # Mark samples with low likelihood as outliers
+            outlier_flag = (probabilities < 0.01).any(axis=1) | (probabilities > 0.99).any(axis=1)
+            return data[~outlier_flag]  # Keep only inliers
+
+        # Remove outliers using GMM or Bayesian
+        train_data_combined = remove_outliers_with_gmm(train_data_combined, wavelength_cols)
+        #train_data_combined = remove_outliers_with_bayesian(train_data_combined, wavelength_cols) 
+        
+    if apply_savgol: 
+        # Apply Savitzky-Golay filter
+        spectrum_train = train_data_combined[wavelength_cols]
+        spectrum_test = test_data_combined[wavelength_cols]
+        
+        spectrum_train_filtered = pd.DataFrame(savgol_filter(spectrum_train, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
+        spectrum_test_filtered = pd.DataFrame(savgol_filter(spectrum_test, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
+        
+        # Standardize the filtered spectrum
+        spectrum_train_filtered_standardized = pd.DataFrame(zscore(spectrum_train_filtered, axis=1), columns=wavelength_cols)
+        spectrum_test_filtered_standardized = pd.DataFrame(zscore(spectrum_test_filtered, axis=1), columns=wavelength_cols)
+        
+        train_data_combined[wavelength_cols] = spectrum_train_filtered_standardized
+        test_data_combined[wavelength_cols] = spectrum_test_filtered_standardized    
+          
     if apply_scaling:
          # Standardisers
         train_data_std = StandardScaler().fit(train_data_combined[wavelength_cols].values)
@@ -87,7 +111,14 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
         )     
         
         train_data_combined[wavelength_cols] = pd.DataFrame(wavelength_train_scaled, columns=wavelength_cols)
-        test_data_combined[wavelength_cols] = pd.DataFrame(wavelength_test_scaled, columns=wavelength_cols)   
+        test_data_combined[wavelength_cols] = pd.DataFrame(wavelength_test_scaled, columns=wavelength_cols)  
+        
+        
+    if apply_robust_scaling:
+        # Robust Scaler
+        robust_scaler = RobustScaler()
+        train_data_combined[wavelength_cols] = robust_scaler.fit_transform(train_data_combined[wavelength_cols])
+        test_data_combined[wavelength_cols] = robust_scaler.transform(test_data_combined[wavelength_cols])
         
     if apply_pca:
         # Perform PCA on scaled wavelength columns
@@ -139,6 +170,7 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
         plt.figure(figsize=(12, 10))
         sns.heatmap(correlation_matrix, cmap='coolwarm', annot=False)
         plt.title("Correlation Matrix for All Features")
+        plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/correlation_matrix.jpg')  
         plt.show()
 
         # Identify highly correlated features (e.g., |r| > 0.999)
@@ -164,9 +196,10 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
         #wavelength_cols = train_data_combined.columns[50:]
         
         print(f"Number of features after removing highly correlated features: {train_data_combined.shape[1]}")
-        """ print("Highly correlated features:")
+        print("Highly correlated features:")
         for i, j in high_corr_pairs:
-            print(f"{correlation_matrix.columns[i]} and {correlation_matrix.columns[j]}: {correlation_matrix.iloc[i, j]}") """
+            print(f"{correlation_matrix.columns[i]} and {correlation_matrix.columns[j]}: {correlation_matrix.iloc[i, j]}")
+            
         
     if apply_random_forest:
         
@@ -296,3 +329,9 @@ def calculate_feature_importance(X_train, y_train, X_test, threshold=0.25):
     X_test_reduced = X_test.drop(columns=low_importance_features)
     
     return X_train_reduced, X_test_reduced
+
+def main():
+    preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_pca=False, apply_correlation=True, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=False, apply_robust_scaling=False)
+    
+if __name__ == '__main__':
+    main()
