@@ -4,6 +4,14 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from preprocessing import preprocessing_v1, apply_log_transformation
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.pipeline import make_pipeline
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import PolynomialFeatures
+from ridge_regression import preprocessing_v1, apply_log_transformation  
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LinearRegression, Lasso, Ridge, OrthogonalMatchingPursuit, ElasticNet
 
 
 #MAELYS:
@@ -23,26 +31,38 @@ def plot_variance():
     plt.title('Variance of Features')
     plt.xlabel('Variance')
     plt.ylabel('Feature')
+    plt.savefig('variance.png')
     plt.show()
-    plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/variance.png')
+
     
 #plot avec et sans log transformation    
-def plot_response_variable(apply_y_transformation=True):
+def plot_response_variable(apply_y_transformation=True, output_filename="response_variable.png", xlim=None):
     
+    # Get preprocessed data
     X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=False)
 
+    # Apply log transformation if specified
     if apply_y_transformation:
         y_train = apply_log_transformation(y_train)
-        
+        title_suffix = " with log transformation"
+    else:
+        title_suffix = ""
+
+    # Plot the distribution
     plt.figure(figsize=(10, 6))
     sns.histplot(y_train, kde=True)
-    plt.title('Distribution of Response Variable (PURITY)')
+    plt.title(f'Distribution of Response Variable (PURITY){title_suffix}')
     plt.xlabel('PURITY')
     plt.ylabel('Frequency')
-    #plt.xlim(0, 10)
-    plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/response_variable_log.png')
+    
+    # Set x-axis limits if specified
+    if xlim:
+        plt.xlim(xlim)
+    
+    # Save the plot
+    plt.savefig(output_filename)
+    print(f"Plot saved as {output_filename}")
     plt.show()
-
 
 def plot_boxplot(title, ax=None):
     """
@@ -79,36 +99,98 @@ def plot_boxplot(title, ax=None):
             plt.show()
     else:
         print(f'PURITY is not a numeric column. Skipping boxplot.\n')
-        
+    
+def plot_ridge_regression_data(apply_y_transformation=False, alpha=1.0, degree=2):
+    # Get preprocessed data
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=True, apply_savgol=True)
+    
+    # Drop the 'sample_name' column if it exists
+    if 'sample_name' in X_train.columns:
+        X_train = X_train.drop(columns=['sample_name'])
+    if 'sample_name' in X_test.columns:
+        X_test = X_test.drop(columns=['sample_name'])
+    
+    # Select only wavelength columns starting from the 7th column
+    wavelength_cols = X_train.columns[6:]
+    X_train_wavelengths = X_train[wavelength_cols]
+    X_test_wavelengths = X_test[wavelength_cols]
+    
+    # Apply log transformation if specified
+    if apply_y_transformation:
+        y_train = apply_log_transformation(y_train)
+        title_suffix = " with log transformation"
+    else:
+        title_suffix = ""
+    
+    # For simplicity, let's assume we are working with a single wavelength feature for visualization
+    X_train_single_feature = X_train_wavelengths.iloc[:, 20].values.reshape(-1, 1)
+    X_test_single_feature = X_test_wavelengths.iloc[:, 20].values.reshape(-1, 1)
+    
+    # Create a Ridge regression model with polynomial features
+    model = make_pipeline(PolynomialFeatures(degree), Ridge(alpha=alpha))
+    model.fit(X_train_single_feature, y_train)
+    
+    # Generate predictions
+    x_plot = np.linspace(X_train_single_feature.min(), X_train_single_feature.max(), 100).reshape(-1, 1)
+    y_plot = model.predict(x_plot)
+    
+    # Plot the data points and the Ridge regression curve
+    plt.figure(figsize=(10, 6))
+    plt.scatter(X_train_single_feature, y_train, color='blue', label='Data points')
+    plt.plot(x_plot, y_plot, color='red', label=f'Ridge regression curve (alpha={alpha})')
+    plt.title(f'Ridge Regression Curve{title_suffix}')
+    plt.xlabel('Feature')
+    plt.ylabel('Target')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    
+
+    
 #Ne pas oublier le mettre le plot de correlation matrix dans preprocessing.py 
-""" def print_mse_results():
-    # Define the paths to the files containing the MSE results
-    mse_files = {
-        'ElasticNet': '/Users/maelysclerget/Desktop/ML/bio322_project/elasticnet_regression.py',
-        'Ridge': '/Users/maelysclerget/Desktop/ML/bio322_project/ridge_regression.py',
-        'Lasso': '/Users/maelysclerget/Desktop/ML/bio322_project/lasso_regression.py',
-        'Huber': '/Users/maelysclerget/Desktop/ML/bio322_project/huber_regression.py',
-        'OMP': '/Users/maelysclerget/Desktop/ML/bio322_project/OMP.py',
-        'Linear': '/Users/maelysclerget/Desktop/ML/bio322_project/linear_regression.py',
-        'Polynomial': '/Users/maelysclerget/Desktop/ML/bio322_project/polynomial_regression.py',
-        'BayesianRidge': '/Users/maelysclerget/Desktop/ML/bio322_project/bayesian_ridge_regression.py',
-        'RandomForest': '/Users/maelysclerget/Desktop/ML/bio322_project/RF_regression.py'
+def calculate_cv_mse(model, X_train, y_train):
+    cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
+    return -cv_scores.mean()
+
+def plot_cv_mse_results():
+    # Get preprocessed data
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_savgol=True)
+    X_train = X_train.drop(columns=['sample_name'])
+    X_test = X_test.drop(columns=['sample_name'])
+    
+    models = {
+        'Linear': LinearRegression(),
+        #'Polynomial': make_pipeline(PolynomialFeatures(degree=1), LinearRegression()),
+        'Ridge': Ridge(),
+        'Lasso': Lasso(), 
+        'OMP': OrthogonalMatchingPursuit(), 
+        'ElasticNet': ElasticNet() 
     }
     
-    # Read and print the MSE results from each file
-    for model_name, file_path in mse_files.items():
-        mse_data = pd.read_csv(file_path)
-        train_mse = mse_data['train_mse'].values[0]
-        test_mse = mse_data['test_mse'].values[0]
-        print(f'{model_name} - Training MSE: {train_mse:.4f}, Test MSE: {test_mse:.4f}')
+    cv_mse_results = []
+    
+    for name, model in models.items():
+        cv_mse = calculate_cv_mse(model, X_train, y_train)
+        cv_mse_results.append((name, cv_mse))
+        print(f'{name} - CV MSE: {cv_mse:.4f}')
+    
+    # Plot the CV MSE results
+    model_names, mse_values = zip(*cv_mse_results)
+    plt.figure(figsize=(10, 6))
+    plt.bar(model_names, mse_values, color='skyblue')
+    plt.xlabel('Model')
+    plt.ylabel('CV MSE')
+    plt.title('Cross-Validation MSE for Different Models')
+    plt.grid(True)
+    plt.show()
 
-if __name__ == '__main__':
-    print_mse_results() """
     
 def main():
-    plot_variance()
-    plot_response_variable()
-    plot_boxplot()
+    #plot_variance()
+    #plot_response_variable()
+    #plot_ridge_regression_data(apply_y_transformation=False, alpha=0.001, degree=1)
+    plot_cv_mse_results()
+
     
 if __name__ == '__main__':
     main()

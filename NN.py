@@ -1,25 +1,25 @@
-""" 
+
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
-import seaborn as sns
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-import torch.optim as optim 
 import tqdm 
 import torch
 from torch.utils.data import Dataset, DataLoader
-import optuna
 from sklearn.model_selection import KFold
 import copy
-import warnings
-from preprocessing import preprocessing_v1, apply_log_transformation
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from preprocessing import preprocessing_v1, submission_file
+import optuna
 
 def neural_network():
     
-    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_scaling=True, apply_remove_outliers=True, apply_variance_threshold=False, apply_random_forest=True)
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_scaling=True, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=True)
     
     X_train = X_train.drop(columns=['sample_name'])
     X_test = X_test.drop(columns=['sample_name'])
@@ -46,7 +46,7 @@ def neural_network():
             super(NeuralNet1, self).__init__()
             self.layers = torch.nn.Sequential(
                 torch.nn.Linear(X_train.shape[1], 64),
-                torch.nn.Dropout(0.5),
+                torch.nn.Dropout(0.7),
                 torch.nn.ReLU(),
                 torch.nn.Linear(64, 1),
             )
@@ -79,78 +79,96 @@ def neural_network():
 
     print(f'{train_loss=}')
     submission = submission_file(test_preds.squeeze())
-    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/sample_submission_NN.csv', index=False)
+    submission.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv', index=False)
     print('Submission file saved successfully.')
-    
-    def nn_early_stopping():
+        
+def nn_early_stopping_with_validation():
 
     # Preprocessing
-    X_train, X_test, y_train = preprocessing_v1(
-        apply_one_hot=True,
-        apply_correlation=True,
-        apply_scaling=True,
-        apply_remove_outliers=False,
-        apply_variance_threshold=False,
-        apply_random_forest=True
-    )
-    
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_savgol=True, apply_remove_outliers=False, apply_correlation=False, apply_random_forest=False)
+
     # Drop sample_name column
     X_train = X_train.drop(columns=['sample_name'])
     X_test = X_test.drop(columns=['sample_name'])
-    
-    # Standardize y_train
-    y_train_std = StandardScaler().fit(y_train.values.reshape(-1, 1))
-    y_train_nn = y_train_std.transform(y_train.values.reshape(-1, 1))
-    
+
+    # Split into training and validation sets
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_train, y_train, test_size=0.2, random_state=42
+    )
+
+    # Standardize y_train and y_val
+    y_scaler = StandardScaler().fit(y_train.values.reshape(-1, 1))
+    y_train_nn = y_scaler.transform(y_train.values.reshape(-1, 1))
+    y_val_nn = y_scaler.transform(y_val.values.reshape(-1, 1))
+
     # Convert to PyTorch tensors
-    X_train, y_train_nn, X_test = map(
+    X_train, y_train_nn, X_val, y_val_nn, X_test = map(
         lambda array: torch.tensor(array, dtype=torch.float32),
-        [X_train.values, y_train_nn, X_test.values]
-    )  
-    
-    # Dataloader
+        [X_train.values, y_train_nn, X_val.values, y_val_nn, X_test.values]
+    )
+
+    # Dataloader for training and validation
     training_dataloader = torch.utils.data.DataLoader(
         torch.utils.data.TensorDataset(X_train, y_train_nn),
         batch_size=32,
         shuffle=True,
     )
-    
-    # Define the Neural Network
+    validation_dataloader = torch.utils.data.DataLoader(
+        torch.utils.data.TensorDataset(X_val, y_val_nn),
+        batch_size=32,
+        shuffle=False,
+    )
+
+    # Define the Neural Network (same as before)
     class NeuralNet(nn.Module):
-        def __init__(self, input_dim):
+        def __init__(self, input_dim, N1, N2, N3, N4):
             super(NeuralNet, self).__init__()
-            self.layers = nn.Sequential(
-                nn.Linear(input_dim, 128),
-                nn.Dropout(0.5),  # Dropout to reduce overfitting
-                nn.ReLU(),
-                nn.Linear(128, 64),
-                nn.Dropout(0.5),  # Dropout to reduce overfitting
-                nn.ReLU(),
-                nn.Linear(64, 32),
-                nn.Linear(32, 1)  # No activation on output layer
+            self.layers = torch.nn.Sequential(
+                torch.nn.Linear(input_dim, N1),
+                nn.Dropout(0.5),
+                torch.nn.Linear(N1, N2),
+                nn.Dropout(0.5),
+                torch.nn.Linear(N2, N3),
+                nn.Dropout(0.5),
+                torch.nn.Linear(N3, N4),
+                nn.Dropout(0.5),
+                torch.nn.Linear(N4, 1),
             )
-        
+
         def forward(self, x):
             return self.layers(x)
-    
+
     # Initialize the model, loss, and optimizer
-    model = NeuralNet(X_train.shape[1])
+    model = NeuralNet(
+        input_dim=X_train.shape[1],
+        N1=153,
+        N2=71,
+        N3=25,
+        N4=15,
+    )
     loss_func = nn.MSELoss()
-    optimizer = optim.AdamW(model.parameters(), weight_decay=1e-4)
-    
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=0.0007591104805282694,
+        weight_decay=1e-3,
+    )
+
     # Early Stopping Parameters
     patience = 10
     min_delta = 1e-4
-    best_loss = float('inf')
+    best_val_loss = float('inf')
     early_stopping_counter = 0
-    
-    # Store training loss for plotting
+
+    # Store training and validation losses for plotting
     training_losses = []
-    
+    validation_losses = []
+
     # Training Loop with Early Stopping
     epochs = 100
     model.train()
     for epoch in range(epochs):
+        # Training phase
+        model.train()
         epoch_loss = 0
         for data, target in training_dataloader:
             optimizer.zero_grad()
@@ -159,42 +177,59 @@ def neural_network():
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
-        
-        # Average loss for the epoch
+
+        # Average training loss for the epoch
         epoch_loss /= len(training_dataloader)
         training_losses.append(epoch_loss)
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {epoch_loss:.4f}")
-        
+
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for data, target in validation_dataloader:
+                pred = model(data)
+                loss = loss_func(pred, target)
+                val_loss += loss.item()
+        val_loss /= len(validation_dataloader)
+        validation_losses.append(val_loss)
+
+        print(f"Epoch {epoch+1}/{epochs}, Training Loss: {epoch_loss:.4f}, Validation Loss: {val_loss:.4f}")
+
         # Check for early stopping
-        if best_loss - epoch_loss > min_delta:
-            best_loss = epoch_loss
+        if best_val_loss - val_loss > min_delta:
+            best_val_loss = val_loss
             early_stopping_counter = 0
         else:
             early_stopping_counter += 1
             if early_stopping_counter >= patience:
                 print("Early stopping triggered!")
                 break
-    
-    # Plot training loss
+
+    # Plot training and validation loss
     plt.figure(figsize=(8, 6))
     plt.plot(range(1, len(training_losses) + 1), training_losses, label="Training Loss")
+    plt.plot(range(1, len(validation_losses) + 1), validation_losses, label="Validation Loss")
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
-    plt.title("Training Loss Over Epochs")
+    plt.title("Training and Validation Loss Over Epochs")
     plt.legend()
     plt.grid()
     plt.show()
-    
+
     # Evaluation
     with torch.no_grad():
         model.eval()
-        train_preds = y_train_std.inverse_transform(model(X_train).detach().numpy())
-        train_gt = y_train_std.inverse_transform(y_train_nn.detach().numpy())
+        train_preds = y_scaler.inverse_transform(model(X_train).detach().numpy())
+        train_gt = y_scaler.inverse_transform(y_train_nn.detach().numpy())
         train_loss = np.sqrt(mean_squared_error(train_preds, train_gt))
 
-        test_preds = y_train_std.inverse_transform(model(X_test).detach().numpy())
-    
-    print(f'{train_loss=}')
+        val_preds = y_scaler.inverse_transform(model(X_val).detach().numpy())
+        val_gt = y_scaler.inverse_transform(y_val_nn.detach().numpy())
+        val_loss = np.sqrt(mean_squared_error(val_preds, val_gt))
+
+        test_preds = y_scaler.inverse_transform(model(X_test).detach().numpy())
+
+    print(f'{train_loss=}, {val_loss=}')
     
     # Save submission file
     submission = submission_file(test_preds.squeeze())
@@ -333,9 +368,9 @@ def optimisation():
      # Preprocess once before optimization
     train_data, _, y_train = preprocessing_v1(
         apply_one_hot=True,
-        apply_scaling=True,
-        apply_correlation=True,
-        apply_random_forest=True
+        apply_savgol=True,
+        apply_correlation=False,
+        apply_random_forest=False
     )
     train_data = train_data.drop(columns=["sample_name"])
 
@@ -351,23 +386,21 @@ def optimisation():
     print("Best hyperparameters: ", study.best_params)
     
 def submission_nn_optimized():
+    
     # Best parameters obtained from Optuna
     best_params = {
-        'N1': 170,
-        'N2': 101,
-        'N3': 43,
-        'N4': 16,
-        'learning_rate': 0.000557849035390674,
+        'N1': 153,
+        'N2': 71,
+        'N3': 25,
+        'N4': 15,
+        'learning_rate': 0.0007591104805282694,
     }
     
     # Preprocessing
     X_train, X_test, y_train = preprocessing_v1(
         apply_one_hot=True,
-        apply_correlation=True,
-        apply_scaling=True,
-        apply_remove_outliers=False,
-        apply_variance_threshold=False,
-        apply_random_forest=True
+        apply_correlation=False,
+        apply_savgol=True
     )
     
     # Drop unnecessary columns
@@ -397,13 +430,13 @@ def submission_nn_optimized():
             super(NeuralNetOptimized, self).__init__()
             self.layers = torch.nn.Sequential(
                 torch.nn.Linear(input_dim, N1),
-                torch.nn.ReLU(),
+                nn.Dropout(0.5),
                 torch.nn.Linear(N1, N2),
-                torch.nn.ReLU(),
+                nn.Dropout(0.5),
                 torch.nn.Linear(N2, N3),
-                torch.nn.ReLU(),
+                nn.Dropout(0.5),
                 torch.nn.Linear(N3, N4),
-                torch.nn.ReLU(),
+                nn.Dropout(0.5),
                 torch.nn.Linear(N4, 1),
             )
         def forward(self, x):
@@ -454,14 +487,30 @@ def submission_nn_optimized():
     # Save submission file
     submission = submission_file(test_preds.squeeze())
     submission.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv', index=False)
-    print('Submission file saved successfully.')
+    print('Submission file saved successfully.')    
+    
+def mix_predictions(alpha=0.65):
+    
+    linear = pd.read_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_RIDGE.csv')
+    non_linear = pd.read_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv')
+    
+    linear_purity = linear['PURITY']
+    non_linear_purity = non_linear['PURITY']
+    final_1 = linear_purity*alpha + non_linear_purity*(1-alpha)
+    submission_final = pd.DataFrame({
+        'ID': linear['ID'],
+        'PURITY': final_1
+    })
+    submission_final.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_mixed.csv', index=False)
+    print('Submission file saved successfully.')  
 
-    
-    
-      
 def main():
-        neural_network()
     
+    #neural_network()
+    #nn_early_stopping_with_validation()
+    #optimisation()
+    #submission_nn_optimized()
+    mix_predictions()
+   
 if __name__ == '__main__':
-        main() 
-         """
+    main() 

@@ -13,8 +13,34 @@ from sklearn.mixture import GaussianMixture
 from scipy.stats import norm
 from scipy.signal import savgol_filter
 from scipy.stats import zscore
-
+from sklearn.model_selection import cross_val_score
     
+def scoring(y_pred, y_true):
+    err = np.abs(y_pred - y_true)
+    frac = (err <= 5).astype(int)
+    return np.mean(frac)
+
+def plot_raw_vs_filtered(raw_signal, filtered_signal, wavelength_cols, sample_idx=0):
+    """
+    Plots the raw and filtered signal for comparison.
+    
+    Args:
+        raw_signal: DataFrame of the raw signal.
+        filtered_signal: DataFrame of the filtered signal.
+        wavelength_cols: List of wavelength columns.
+        sample_idx: Index of the sample to plot.
+    """
+    plt.figure(figsize=(12, 6))
+    plt.plot(wavelength_cols, raw_signal.iloc[sample_idx, :], label="Raw Signal", alpha=0.7)
+    plt.plot(wavelength_cols, filtered_signal.iloc[sample_idx, :], label="Filtered Signal", linestyle='--')
+    plt.title(f"Sample {sample_idx}: Raw vs. Filtered Signal")
+    plt.xlabel("Wavelength")
+    plt.ylabel("Intensity")
+    plt.legend()
+    plt.grid()
+    plt.savefig('savitzky_golay_filter.png')
+    plt.show()
+
 def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
                      apply_correlation=False, apply_remove_outliers=False, 
                      apply_variance_threshold=False, apply_random_forest=False, 
@@ -25,11 +51,11 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
     train_data = train_data_og.copy()
     test_data = test_data_og.copy()
     
-    train_data = train_data.drop(columns=['prod_substance'])
-    test_data = test_data.drop(columns=['prod_substance'])
+    train_data = train_data.drop(columns=['prod_substance','measure_type_display'])
+    test_data = test_data.drop(columns=['prod_substance','measure_type_display'])
     
-    non_wavelength_cols = ['device_serial', 'substance_form_display', 'measure_type_display']
-    wavelength_cols = train_data.columns[5:]
+    non_wavelength_cols = ['device_serial', 'substance_form_display']
+    wavelength_cols = train_data.columns[4:]
     
     # Remove NaN values
     train_data = train_data.dropna()
@@ -45,6 +71,15 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         X_train_encoded_df = pd.DataFrame(X_train_encoded, columns=encoder.get_feature_names_out(non_wavelength_cols))
         X_test_encoded_df = pd.DataFrame(X_test_encoded, columns=encoder.get_feature_names_out(non_wavelength_cols))
         
+        # Multiply by 3 for "Non homogenized powder" and by 1.4 for "Unspecified"
+        if 'substance_form_display_Non homogenized powder' in X_train_encoded_df.columns:
+            X_train_encoded_df['substance_form_display_Non homogenized powder'] *= 3
+            X_test_encoded_df['substance_form_display_Non homogenized powder'] *= 3
+        
+        if 'substance_form_display_Unspecified' in X_train_encoded_df.columns:
+            X_train_encoded_df['substance_form_display_Unspecified'] *= 1.4
+            X_test_encoded_df['substance_form_display_Unspecified'] *= 1.4
+            
         train_data_combined = pd.concat([pd.DataFrame(X_train_encoded_df), train_data[wavelength_cols].reset_index(drop=True)], axis=1)
         test_data_combined = pd.concat([pd.DataFrame(X_test_encoded_df), test_data[wavelength_cols].reset_index(drop=True)], axis=1)
     else:
@@ -56,45 +91,60 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         non_outlier_indices = remove_outliers_mahalanobis(train_data_combined[wavelength_cols]).index
         train_data_combined = train_data_combined.loc[non_outlier_indices].reset_index(drop=True)
         print(f"After Mahalanobis outlier removal, train data shape: {train_data_combined.shape}")  """
-        
+    
     if apply_remove_outliers:
-        # Applying Gaussian Mixture Model (GMM) for outlier detection
-        def remove_outliers_with_gmm(data, cols):
-            gmm = GaussianMixture(n_components=2, covariance_type='full', random_state=42)
-            gmm.fit(data[cols])
-            probabilities = gmm.predict_proba(data[cols])
+
+        def remove_outliers(dataframe, columns_to_check, threshold=1.5, outlier_percentage=0.10):
+            """
+            Removes rows from the dataset if more than a certain percentage of values in specified columns are outliers.
+
+            Parameters:
+                dataframe (pd.DataFrame): The input dataset as a pandas DataFrame.
+                columns_to_check (list): List of columns to check for outliers.
+                threshold (float): The IQR multiplier to define outliers (default is 1.5).
+                outlier_percentage (float): The percentage of outlier values in the specified columns to consider for removal (default is 0.5).
+
+            Returns:
+                pd.DataFrame: The cleaned DataFrame with rows containing too many outliers removed.
+            """
+            # Calculate Q1 (25th percentile) and Q3 (75th percentile) for the specified columns
+            Q1 = dataframe[columns_to_check].quantile(0.25)
+            Q3 = dataframe[columns_to_check].quantile(0.75)
+            IQR = Q3 - Q1
+            initial_rows = dataframe.shape[0]
             
-            # Mark samples with low probabilities as outliers
-            outlier_flag = probabilities.max(axis=1) < 0.5  # Threshold for outliers
-            return data[~outlier_flag]  # Keep only inliers
+            # Determine outliers for the specified columns
+            outliers = ((dataframe[columns_to_check] < (Q1 - threshold * IQR)) | (dataframe[columns_to_check] > (Q3 + threshold * IQR)))
+            # Calculate the percentage of outliers in each row for the specified columns
+            outlier_counts = outliers.sum(axis=1) / len(columns_to_check)
+            # Keep rows where the percentage of outliers is less than or equal to the threshold
+            cleaned_dataframe = dataframe[outlier_counts <= outlier_percentage]
+            removed_rows = initial_rows - cleaned_dataframe.shape[0]
+            print(f"Removed {removed_rows} rows where more than {outlier_percentage * 100}% of columns are outliers.")
 
-        # Applying Bayesian outlier detection
-        def remove_outliers_with_bayesian(data, cols):
-            z_scores = (data[cols] - data[cols].mean()) / data[cols].std()
-            probabilities = norm.cdf(z_scores)  # Assuming a Gaussian distribution
+            return cleaned_dataframe
 
-            # Mark samples with low likelihood as outliers
-            outlier_flag = (probabilities < 0.01).any(axis=1) | (probabilities > 0.99).any(axis=1)
-            return data[~outlier_flag]  # Keep only inliers
-
-        # Remove outliers using GMM or Bayesian
-        train_data_combined = remove_outliers_with_gmm(train_data_combined, wavelength_cols)
-        #train_data_combined = remove_outliers_with_bayesian(train_data_combined, wavelength_cols) 
+        # Remove outliers from the numerical columns in both train and test data
+        wavelength_cols = train_data_combined.columns[49:]
+        train_data_combined = remove_outliers(train_data_combined, wavelength_cols)
+        test_data_combined = remove_outliers(test_data_combined, wavelength_cols, outlier_percentage=0.15)  
         
     if apply_savgol: 
         # Apply Savitzky-Golay filter
         spectrum_train = train_data_combined[wavelength_cols]
         spectrum_test = test_data_combined[wavelength_cols]
         
-        spectrum_train_filtered = pd.DataFrame(savgol_filter(spectrum_train, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
-        spectrum_test_filtered = pd.DataFrame(savgol_filter(spectrum_test, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
+        spectrum_train_filtered = pd.DataFrame(savgol_filter(spectrum_train, 5, 2, deriv=2, axis=1), columns=wavelength_cols)
+        spectrum_test_filtered = pd.DataFrame(savgol_filter(spectrum_test, 5, 2, deriv=2, axis=1), columns=wavelength_cols)
         
         # Standardize the filtered spectrum
         spectrum_train_filtered_standardized = pd.DataFrame(zscore(spectrum_train_filtered, axis=1), columns=wavelength_cols)
         spectrum_test_filtered_standardized = pd.DataFrame(zscore(spectrum_test_filtered, axis=1), columns=wavelength_cols)
         
+        plot_raw_vs_filtered(spectrum_train, spectrum_train_filtered, wavelength_cols, sample_idx=0)
+
         train_data_combined[wavelength_cols] = spectrum_train_filtered_standardized
-        test_data_combined[wavelength_cols] = spectrum_test_filtered_standardized    
+        test_data_combined[wavelength_cols] = spectrum_test_filtered_standardized  
           
     if apply_scaling:
          # Standardisers
@@ -235,6 +285,7 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         plt.title("Feature Importances")
         plt.xlabel("Feature Index")
         plt.ylabel("Importance Score")
+        plt.savefig('feature_importances.png')
         plt.show()
 
         """ # Test different thresholds
@@ -262,10 +313,11 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         # Plot cross-validated R^2 scores vs. thresholds
         plt.figure(figsize=(8, 5))
         plt.plot(thresholds, cross_val_scores, marker='o')
-        plt.title("Cross-Validated R^2 Score vs. Threshold")
-        plt.xlabel("Threshold")
-        plt.ylabel("Mean R^2 Score")
+        plt.title("Optimal Feature Selection Threshold vs. Model Performance")
+        plt.xlabel("Feature Importance Threshold")
+        plt.ylabel("Mean Cross-Validated R² Score")
         plt.grid()
+        plt.savefig('threshold_RF.png')
         plt.show() """
 
 
@@ -277,8 +329,8 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
 
             
     # Add sample_name column back to the combined DataFrames
-    train_data_combined.insert(0, 'sample_name', train_data_og['sample_name'])
-    test_data_combined.insert(0, 'sample_name', test_data_og['sample_name'])
+    train_data_combined = pd.concat([pd.DataFrame({'sample_name': train_data_og['sample_name']}), train_data_combined], axis=1)
+    test_data_combined = pd.concat([pd.DataFrame({'sample_name': test_data_og['sample_name']}), test_data_combined], axis=1)
     y_train = train_data['PURITY'].iloc[train_data_combined.index]
 
     print(f"Shape of OG train data: {train_data_og.shape}")
@@ -316,7 +368,7 @@ def calculate_feature_importance(X_train, y_train, X_test, threshold=0.25):
     wavelength_feature_importance_df.columns = ['Feature', 'Importance']
     wavelength_feature_importance_df.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/feature_importance_LR1.csv', index=False)
     print('Feature Importance saved successfully.')
-    
+
     # Calculate stats threshold
     threshold_value = feature_importance.quantile(threshold)
     
@@ -331,7 +383,6 @@ def calculate_feature_importance(X_train, y_train, X_test, threshold=0.25):
     return X_train_reduced, X_test_reduced
 
 def main():
-    preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_pca=False, apply_correlation=True, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=False, apply_robust_scaling=False)
-    
+    preprocessing_v1(apply_one_hot=True, apply_scaling=False, apply_pca=False, apply_correlation=False, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=False, apply_savgol=True)
 if __name__ == '__main__':
     main()

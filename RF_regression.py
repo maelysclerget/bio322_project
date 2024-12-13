@@ -68,6 +68,7 @@ def random_forest_linear_regression(apply_y_transformation=False):
     if apply_y_transformation:
         y_test_pred = np.exp(y_test_pred)  # Apply inverse log transformation
     
+    
     # Create submission DataFrame
     submission = submission_file(y_test_pred)
     

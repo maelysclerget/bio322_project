@@ -5,12 +5,11 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import OrthogonalMatchingPursuit
 from preprocessing import preprocessing_v1, submission_file
+import matplotlib.pyplot as plt
 
 def orthogonal_matching_pursuit():
     
-    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, 
-                                                apply_scaling=False, apply_remove_outliers=False, 
-                                                apply_random_forest=False, apply_savgol=True, apply_variance_threshold=False)
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=False, apply_remove_outliers=False, apply_savgol=True)
     
     X_train = X_train.drop(columns=['sample_name'])
     X_test = X_test.drop(columns=['sample_name'])
@@ -58,6 +57,18 @@ def orthogonal_matching_pursuit():
     # Save submission to CSV
     submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/sample_submission_OMP.csv', index=False)
     print('Submission file saved successfully.')
+    
+    # Plot y_train vs y_train_pred
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y_train_pred, y_train, color='blue', label='Data points')
+    plt.plot([y_train.min(), y_train.max()], [y_train.min(), y_train.max()], 'r--', label='y=x')
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('OMP Actual vs Predicted Values')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig('OMP.png')
+    plt.show()
 
 def main():
     orthogonal_matching_pursuit()   
