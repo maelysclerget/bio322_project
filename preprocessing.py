@@ -134,8 +134,8 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         spectrum_train = train_data_combined[wavelength_cols]
         spectrum_test = test_data_combined[wavelength_cols]
         
-        spectrum_train_filtered = pd.DataFrame(savgol_filter(spectrum_train, 5, 2, deriv=2, axis=1), columns=wavelength_cols)
-        spectrum_test_filtered = pd.DataFrame(savgol_filter(spectrum_test, 5, 2, deriv=2, axis=1), columns=wavelength_cols)
+        spectrum_train_filtered = pd.DataFrame(savgol_filter(spectrum_train, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
+        spectrum_test_filtered = pd.DataFrame(savgol_filter(spectrum_test, 7, 3, deriv=2, axis=1), columns=wavelength_cols)
         
         # Standardize the filtered spectrum
         spectrum_train_filtered_standardized = pd.DataFrame(zscore(spectrum_train_filtered, axis=1), columns=wavelength_cols)
@@ -144,8 +144,54 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         plot_raw_vs_filtered(spectrum_train, spectrum_train_filtered, wavelength_cols, sample_idx=0)
 
         train_data_combined[wavelength_cols] = spectrum_train_filtered_standardized
-        test_data_combined[wavelength_cols] = spectrum_test_filtered_standardized  
-          
+        test_data_combined[wavelength_cols] = spectrum_test_filtered_standardized 
+         
+    if apply_remove_outliers:
+
+        def remove_outliers(dataframe, columns_to_check, threshold=1.8, outlier_percentage=0.70):
+            """
+            Removes rows from the dataset if more than a certain percentage of values in specified columns are outliers.
+
+            Parameters:
+                dataframe (pd.DataFrame): The input dataset as a pandas DataFrame.
+                columns_to_check (list): List of columns to check for outliers.
+                threshold (float): The IQR multiplier to define outliers (default is 1.5).
+                outlier_percentage (float): The percentage of outlier values in the specified columns to consider for removal (default is 0.10).
+
+            Returns:
+                pd.DataFrame: The cleaned DataFrame with rows containing too many outliers removed.
+            """
+            # Calculate Q1, Q3, and IQR for the specified columns
+            Q1 = dataframe[columns_to_check].quantile(0.25)
+            Q3 = dataframe[columns_to_check].quantile(0.75)
+            IQR = Q3 - Q1
+
+            # Define outlier thresholds
+            lower_bound = Q1 - threshold * IQR
+            upper_bound = Q3 + threshold * IQR
+
+            # Identify outliers for each column
+            is_outlier = pd.DataFrame(False, index=dataframe.index, columns=columns_to_check)
+            for column in columns_to_check:
+                is_outlier[column] = (dataframe[column] < lower_bound[column]) | (dataframe[column] > upper_bound[column])
+
+            # Calculate the proportion of outlier columns for each row
+            outlier_proportion = is_outlier.sum(axis=1) / len(columns_to_check)
+
+            # Keep rows where the proportion of outliers is below the specified threshold
+            cleaned_dataframe = dataframe[outlier_proportion <= outlier_percentage]
+
+            # Print number of rows removed for clarity
+            removed_rows = dataframe.shape[0] - cleaned_dataframe.shape[0]
+            print(f"Removed {removed_rows} rows with more than {outlier_percentage * 100}% outliers in specified columns.")
+            
+            return cleaned_dataframe
+
+        # Example Usage
+        wavelength_cols = train_data_combined.columns[49:]  # Example: Adjust column index as per dataset
+        train_data_combined = remove_outliers(train_data_combined, wavelength_cols)
+        
+    
     if apply_scaling:
          # Standardisers
         train_data_std = StandardScaler().fit(train_data_combined[wavelength_cols].values)
@@ -327,7 +373,7 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         train_data_combined = train_data_combined.drop(columns=dropped_feature_names)
         test_data_combined = test_data_combined.drop(columns=dropped_feature_names) """
 
-            
+    
     # Add sample_name column back to the combined DataFrames
     train_data_combined = pd.concat([pd.DataFrame({'sample_name': train_data_og['sample_name']}), train_data_combined], axis=1)
     test_data_combined = pd.concat([pd.DataFrame({'sample_name': test_data_og['sample_name']}), test_data_combined], axis=1)
