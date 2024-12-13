@@ -38,7 +38,7 @@ def plot_variance():
 
     
 #plot avec et sans log transformation    
-def plot_response_variable(apply_y_transformation=True, output_filename="Plots/response_variable.png", xlim=None):
+def plot_response_variable(apply_y_transformation=False, output_filename="Plots/response_variable.png", xlim=None):
     
     # Get preprocessed data
     X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=False)
@@ -144,9 +144,9 @@ def plot_cv_mse_results():
     
 def main():
     #plot_variance()
-    #plot_response_variable()
+    plot_response_variable()
     #plot_ridge_regression_data(apply_y_transformation=False, alpha=0.001, degree=1)
-    plot_cv_mse_results()
+    #plot_cv_mse_results()
 
     
 if __name__ == '__main__':

@@ -19,8 +19,8 @@ Maëlys Clerget & Alice Priolet
 ## a. Response variable purity 
 - **Purpose**: Understand the distribution of the response variable purity. Assess whether a log transformation can stabilize variance and make the data more normally distributed.
 - Visualization: 
-![Purity](response_variable.png)
-![Purity with log transformation applied](response_variable_log.png)
+![Purity](Plots/response_variable.png)
+![Purity with log transformation applied](Plots/response_variable_log.png)
 - Insights: Applying a log transformation was not conclusive. The inherent distribution of the data, which does not significantly change with the transformation.
 
 ## b. Measure type display and prob substance
@@ -66,6 +66,7 @@ After testing different combination of preprocessing steps, we decided to keep t
 
 ## b. Outlier Removal 
 - ALICE
+- IQR method was used 
 
 ## c. Feature Engineering
 - One hot encoding to converte categorical features (device_serial, substance_from_display) into numerical features 
@@ -93,6 +94,9 @@ Some visualization were plotted
 ## a. Neural Network 
 
 # Summary and Conclusions 
+## a. MSE Comparison 
+![MSE Comparison](Plots/cv_mse_results.png)
+
 Is a linear method sufficient, or are non-linear methods needed for high accuracy?
 • For which machine learning method are transformations of the data needed, and which kind of transformations work best?
 • Which predictors are important?
