@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
 
 import pandas as pd
 import numpy as np
@@ -79,7 +82,7 @@ def neural_network():
 
     print(f'{train_loss=}')
     submission = submission_file(test_preds.squeeze())
-    submission.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_NN.csv', index=False)
     print('Submission file saved successfully.')
         
 def nn_early_stopping_with_validation():
@@ -233,7 +236,7 @@ def nn_early_stopping_with_validation():
     
     # Save submission file
     submission = submission_file(test_preds.squeeze())
-    submission.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_NN.csv', index=False)
     print('Submission file saved successfully.')
     
 def loss(y_pred, y_hat):
@@ -486,13 +489,13 @@ def submission_nn_optimized():
     
     # Save submission file
     submission = submission_file(test_preds.squeeze())
-    submission.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_NN.csv', index=False)
     print('Submission file saved successfully.')    
     
 def mix_predictions(alpha=0.65):
     
-    linear = pd.read_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_RIDGE.csv')
-    non_linear = pd.read_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_NN.csv')
+    linear = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_RIDGE.csv')
+    non_linear = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_NN.csv')
     
     linear_purity = linear['PURITY']
     non_linear_purity = non_linear['PURITY']
@@ -501,7 +504,7 @@ def mix_predictions(alpha=0.65):
         'ID': linear['ID'],
         'PURITY': final_1
     })
-    submission_final.to_csv('/Users/georgialex/Dropbox/ML_project/MLepfl/epfl-bio-322-2024/sample_submission_mixed.csv', index=False)
+    submission_final.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_mixed.csv', index=False)
     print('Submission file saved successfully.')  
 
 def main():

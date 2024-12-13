@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
+
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -33,7 +37,7 @@ def linear_regression(feature_importance=False, apply_y_transformation=False):
     submission = submission_file(y_test_pred)
     
     # Save submission to CSV
-    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/sample_submission_LR.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_LR.csv', index=False)
     print('Submission file saved successfully.')
     
         # Plot y_train vs y_train_pred

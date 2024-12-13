@@ -1,13 +1,20 @@
+import sys
 
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
+
+import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.pipeline import Pipeline
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import Lasso
+from sklearn.linear_model import ElasticNet
+from scipy.stats import chi2
 from preprocessing import preprocessing_v1, apply_log_transformation, submission_file
 
-def lasso_regression(apply_y_transformation=False):
+
+def elasticnet_regression(apply_y_transformation=False):
     X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_scaling=True, apply_remove_outliers=True)
     X_train = X_train.drop(columns=['sample_name'])
     X_test = X_test.drop(columns=['sample_name'])
@@ -18,17 +25,18 @@ def lasso_regression(apply_y_transformation=False):
     # Define the pipeline
     pipeline = Pipeline([
         ("polynomial", PolynomialFeatures()),
-        ("regression", Lasso())
+        ("regression", ElasticNet())
     ])
     
     # Define the parameter grid
     param_grid = {
         "polynomial__degree": np.arange(1, 3, 1),
-        "regression__alpha": np.logspace(-12, -3, 10)
+        "regression__alpha": np.logspace(-12, -3, 10),
+        "regression__l1_ratio": np.linspace(0, 1, 10)
     }
     
     # Initialize GridSearchCV
-    grid_search = GridSearchCV(pipeline, param_grid, cv=10, 
+    grid_search = GridSearchCV(pipeline, param_grid, cv=5, 
                                scoring='neg_mean_squared_error', 
                                return_train_score=True)
     
@@ -51,7 +59,7 @@ def lasso_regression(apply_y_transformation=False):
     print('Training MSE:', mse)
     
     # Cross-validation score
-    cv_scores = cross_val_score(best_model, X_train, y_train, cv=10, scoring='neg_mean_squared_error')
+    cv_scores = cross_val_score(best_model, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
     print('CV MSE:', -cv_scores.mean())
     
     # Predict on test data
@@ -63,5 +71,5 @@ def lasso_regression(apply_y_transformation=False):
     submission = submission_file(y_test_pred)
     
     # Save submission to CSV
-    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/sample_submission_LASSO.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_ELASTICNET.csv', index=False)
     print('Submission file saved successfully.')

@@ -38,15 +38,15 @@ def plot_raw_vs_filtered(raw_signal, filtered_signal, wavelength_cols, sample_id
     plt.ylabel("Intensity")
     plt.legend()
     plt.grid()
-    plt.savefig('savitzky_golay_filter.png')
+    plt.savefig('Plots/savitzky_golay_filter.png')
     plt.show()
 
 def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False, 
                      apply_correlation=False, apply_remove_outliers=False, 
                      apply_variance_threshold=False, apply_random_forest=False, 
                      apply_robust_scaling=False, apply_savgol=False):   
-    train_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/train.csv')
-    test_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/test.csv')
+    train_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Raw-data/train.csv')
+    test_data_og = pd.read_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Raw-data/test.csv')
    
     train_data = train_data_og.copy()
     test_data = test_data_og.copy()
@@ -266,7 +266,7 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         plt.figure(figsize=(12, 10))
         sns.heatmap(correlation_matrix, cmap='coolwarm', annot=False)
         plt.title("Correlation Matrix for All Features")
-        plt.savefig('/Users/maelysclerget/Desktop/ML/bio322_project/plots/correlation_matrix.jpg')  
+        plt.savefig('Plots/correlation_matrix.png')  
         plt.show()
 
         # Identify highly correlated features (e.g., |r| > 0.999)
@@ -331,7 +331,7 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         plt.title("Feature Importances")
         plt.xlabel("Feature Index")
         plt.ylabel("Importance Score")
-        plt.savefig('feature_importances.png')
+        plt.savefig('Plots/feature_importances.png')
         plt.show()
 
         """ # Test different thresholds
@@ -385,9 +385,9 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
     print(f"Shape of test data: {test_data_combined.shape}")
     print(f"Shape of y_train: {y_train.shape}")
     
-    train_data_combined.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/train_data_combined.csv', index=False)
+    train_data_combined.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Preprocessed-data/preprocessed_train_data.csv', index=False)
     print('Submission file saved successfully.')
-    test_data_combined.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/test_data_combined.csv', index=False)
+    test_data_combined.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Preprocessed-data/preprocessed_test_data.csv', index=False)
     print('Submission file saved successfully.')
             
     return train_data_combined, test_data_combined, y_train
@@ -412,7 +412,7 @@ def calculate_feature_importance(X_train, y_train, X_test, threshold=0.25):
     feature_importance = feature_importance.abs().sort_values(ascending=False)
     wavelength_feature_importance_df = feature_importance.reset_index()
     wavelength_feature_importance_df.columns = ['Feature', 'Importance']
-    wavelength_feature_importance_df.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/feature_importance_LR1.csv', index=False)
+    wavelength_feature_importance_df.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Preprocessed-data/feature_importance_LR1.csv', index=False)
     print('Feature Importance saved successfully.')
 
     # Calculate stats threshold
@@ -429,6 +429,6 @@ def calculate_feature_importance(X_train, y_train, X_test, threshold=0.25):
     return X_train_reduced, X_test_reduced
 
 def main():
-    preprocessing_v1(apply_one_hot=True, apply_scaling=False, apply_pca=False, apply_correlation=False, apply_remove_outliers=False, apply_variance_threshold=False, apply_random_forest=False, apply_savgol=True)
+    preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_savgol=False)
 if __name__ == '__main__':
     main()

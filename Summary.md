@@ -37,22 +37,22 @@ Maëlys Clerget & Alice Priolet
 
 ## d. Correlation matrix 
 - **Purpose**: Identify highly correlated features to reduce multicollinearity in a coolwarm colormap. 
-- Visualization: In order to obtain the correct graph run preprocessing_v1 with apply_savgol_filter=False
-![Correlation matrix](correlation_matrix.jpg)
+- Visualization: In order to obtain the correct graph run preprocessing.py with preprocessing_v1 (apply_one_hot=True, apply_correlation=True, apply_savgol=False)
+![Correlation matrix](Plots/correlation_matrix.png)
 - Insights: Features with a correlation coefficient greater than 0.9999 were removed.
 
 ## e. Raw vs Filtered signal 
 - **Purpose**: Compare the effect of applying the Savitzky-Golay filter.
 - Visualization:
-![Savol filter](savitzky_golay_filter.png)
+![Savol filter](Plots/savitzky_golay_filter.png)
 - Insights: The Savitzky-Golay filter smooths the spectral data and computes derivatives. This enhances feature representation for machine learning models.
 
 ## f. Feature importance 
 - **Purpose**: Identify the most significant features for predicting the target variable (purity) using a Random Forest model.
-- Visualization: In order to obtain the correct graph run preprocessing_v1 with apply_savgol_filter=False
-![Feature importance](feature_importances.png)
+- Visualization: In order to obtain the correct graph run preprocessing.py with preprocessing_v1 (apply_one_hot=True, apply_random_forest=True, apply_savgol=False)
+![Feature importance](Plots/feature_importances.png)
 - Treshold optimization: To choose the optimal threshold for feature selection, different thresholds were tested, and the cross-validated R² scores were plotted. In order to obtain the correct graph run preprocessing_v1 with apply_savgol_filter=False
-![Treshold](treshold_RF.png)
+![Treshold](Plots/treshold_RF.png)
 - Insights: Features with importance below the chosen threshold (i.e, 0.0048). The cross-validation results helped balance the trade-off between retaining features and improving model accuracy.
 
 quand on fait savgol on fait plus correlation 
@@ -79,13 +79,13 @@ Some visualization were plotted
 ## b. Polynomial regression 
 ## c. Ridge regression 
 - Visualization: 
-![Ridge actual vs predicted values](Ridge.png)
+![Ridge actual vs predicted values](Plots/Ridge.png)
 ## d. Bayesian ridge regression
 ## e. Lasso regression 
 ## f. Elasticnet regression 
 ## g. Orthogonal matching pursuit 
 - Visualization: 
-![OMP actual vs predicted values](OMP.png)
+![OMP actual vs predicted values](Plots/OMP.png)
 ## h. Huber regression 
 ## i. Random forest regression 
 
