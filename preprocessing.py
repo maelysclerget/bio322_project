@@ -9,11 +9,6 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import SelectFromModel
 from scipy.stats import chi2
 from sklearn.linear_model import LinearRegression
-from sklearn.mixture import GaussianMixture
-from scipy.stats import norm
-from scipy.signal import savgol_filter
-from scipy.stats import zscore
-from sklearn.model_selection import cross_val_score
     
 def scoring(y_pred, y_true):
     err = np.abs(y_pred - y_true)
@@ -71,15 +66,6 @@ def preprocessing_v1(apply_one_hot=False, apply_scaling=False, apply_pca=False,
         X_train_encoded_df = pd.DataFrame(X_train_encoded, columns=encoder.get_feature_names_out(non_wavelength_cols))
         X_test_encoded_df = pd.DataFrame(X_test_encoded, columns=encoder.get_feature_names_out(non_wavelength_cols))
         
-        # Multiply by 3 for "Non homogenized powder" and by 1.4 for "Unspecified"
-        if 'substance_form_display_Non homogenized powder' in X_train_encoded_df.columns:
-            X_train_encoded_df['substance_form_display_Non homogenized powder'] *= 3
-            X_test_encoded_df['substance_form_display_Non homogenized powder'] *= 3
-        
-        if 'substance_form_display_Unspecified' in X_train_encoded_df.columns:
-            X_train_encoded_df['substance_form_display_Unspecified'] *= 1.4
-            X_test_encoded_df['substance_form_display_Unspecified'] *= 1.4
-            
         train_data_combined = pd.concat([pd.DataFrame(X_train_encoded_df), train_data[wavelength_cols].reset_index(drop=True)], axis=1)
         test_data_combined = pd.concat([pd.DataFrame(X_test_encoded_df), test_data[wavelength_cols].reset_index(drop=True)], axis=1)
     else:
