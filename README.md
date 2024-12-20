@@ -20,7 +20,16 @@ The project is organized into several sections to ensure a systematic approach, 
 Load, explore, and visualize the provided dataset to gain insights and identify patterns in the data. We will be able to analyse the shape of the dataset or the relevant informations. 
 
 - Analyse of the categorical columns (different plots) :
+measure_type_display and prod_substance 
+sample_name helped us understand and compare the wavelengths measurements even if it's the same sample only with a different 
 
+- Analyse of wavelengths : 
+(exécute dans le fichier data_vis) 
+This plot is a plot of the wavelengths results in function of the wavelengths for 5 different wavelengths. This is helpfull to determine if we can easily detect outliers. Here we can see that for most of the different wavelengths, the results are in the area [-0.4, 0.6]. All the wavelengths out of this area are outliers. 
+
+- Analyse of the same samples, different substances or devices and their graphs : 
+(exécute dans le fichier data_Vis2) 
+These plots were necessary to check the importance of 2 categorical columns : substance_form_display and device_serial. With those plots, we could clearly see 2 or more curves for each sample that have been measured a few times in different substances of devices. In most of the cases, the curves are different for the different devices. We got to the conclusion that the substances and devices were important in the results of the wavelengths and then in the results of the purity.  
 
 - **`preprocessing.ipynb`**: 
 Clean and preprocess the data, including handling missing values, feature engineering, and encoding categorical variables.
