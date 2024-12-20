@@ -1,4 +1,4 @@
-# bio322_project
+# Bio322_project
 ML project for course bio322
 
 BIO-322 Machine Learning project 
@@ -19,6 +19,9 @@ The project is organized into several sections to ensure a systematic approach, 
 - **`data_visualization.ipynb`**: 
 Load, explore, and visualize the provided dataset to gain insights and identify patterns in the data. We will be able to analyse the shape of the dataset or the relevant informations. 
 
+- Analyse of the categorical columns (different plots) :
+
+
 - **`preprocessing.ipynb`**: 
 Clean and preprocess the data, including handling missing values, feature engineering, and encoding categorical variables.
 
@@ -27,8 +30,6 @@ Train and evaluate a baseline linear model, experimenting with regularization te
 
 - **`train_non_linear.ipynb`**: 
 Train and tune advanced non-linear models like Random Forests and XGBoost to discuss the predictions accuracy of the dataset.
-
-- **`train_non_linear.ipynb`**: 
 
 
 
