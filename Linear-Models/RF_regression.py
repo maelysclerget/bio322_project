@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
 
 import numpy as np
 from sklearn.metrics import mean_squared_error
@@ -68,10 +71,11 @@ def random_forest_linear_regression(apply_y_transformation=False):
     if apply_y_transformation:
         y_test_pred = np.exp(y_test_pred)  # Apply inverse log transformation
     
+    
     # Create submission DataFrame
     submission = submission_file(y_test_pred)
     
     # Save submission to CSV
-    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/sample_submission_RF.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_RF.csv', index=False)
     print('Submission file saved successfully.')
     

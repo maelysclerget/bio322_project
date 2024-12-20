@@ -1,9 +1,19 @@
+import sys
+
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
 
 import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from preprocessing import preprocessing_v1, apply_log_transformation
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.pipeline import make_pipeline
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LinearRegression, Lasso, Ridge, OrthogonalMatchingPursuit, ElasticNet
 
 
 #MAELYS:
@@ -23,24 +33,39 @@ def plot_variance():
     plt.title('Variance of Features')
     plt.xlabel('Variance')
     plt.ylabel('Feature')
+    plt.savefig('Plots/variance.png')
     plt.show()
+
     
 #plot avec et sans log transformation    
-def plot_response_variable(apply_y_transformation=False):
+def plot_response_variable(apply_y_transformation=True, output_filename="Plots/response_variable.png", xlim=None):
     
-    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=True)
+    # Get preprocessed data
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_scaling=True, apply_remove_outliers=False)
 
+    # Apply log transformation if specified
     if apply_y_transformation:
         y_train = apply_log_transformation(y_train)
-        
+        title_suffix = " with log transformation"
+    else:
+        title_suffix = ""
+
+    # Plot the distribution
     plt.figure(figsize=(10, 6))
     sns.histplot(y_train, kde=True)
-    plt.title('Distribution of Response Variable (PURITY)')
+    plt.title(f'Distribution of Response Variable (PURITY){title_suffix}')
     plt.xlabel('PURITY')
     plt.ylabel('Frequency')
-    plt.xlim(0, 10)
-    plt.show()
     
+    # Set x-axis limits if specified
+    if xlim:
+        plt.xlim(xlim)
+    
+    # Save the plot
+    plt.savefig(output_filename)
+    print(f"Plot saved as {output_filename}")
+    plt.show()
+
 def plot_boxplot(title, ax=None):
     """
     Function to calculate summary statistics and plot a boxplot for numeric columns in a DataFrame.
@@ -76,5 +101,54 @@ def plot_boxplot(title, ax=None):
             plt.show()
     else:
         print(f'PURITY is not a numeric column. Skipping boxplot.\n')
-        
+
+    
 #Ne pas oublier le mettre le plot de correlation matrix dans preprocessing.py 
+def calculate_cv_mse(model, X_train, y_train):
+    cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring='neg_mean_squared_error')
+    return -cv_scores.mean()
+
+def plot_cv_mse_results():
+    # Get preprocessed data
+    X_train, X_test, y_train = preprocessing_v1(apply_one_hot=True, apply_correlation=True, apply_savgol=True)
+    X_train = X_train.drop(columns=['sample_name'])
+    X_test = X_test.drop(columns=['sample_name'])
+    
+    models = {
+        #'Linear': LinearRegression(),
+        #'Polynomial': make_pipeline(PolynomialFeatures(degree=1), LinearRegression()),
+        'Ridge': Ridge(),
+        'Lasso': Lasso(), 
+        'OMP': OrthogonalMatchingPursuit(), 
+        'ElasticNet': ElasticNet() 
+    }
+    
+    cv_mse_results = []
+    
+    for name, model in models.items():
+        cv_mse = calculate_cv_mse(model, X_train, y_train)
+        cv_mse_results.append((name, cv_mse))
+        print(f'{name} - CV MSE: {cv_mse:.4f}')
+    
+    # Plot the CV MSE results
+    model_names, mse_values = zip(*cv_mse_results)
+    plt.figure(figsize=(10, 6))
+    plt.bar(model_names, mse_values, color='skyblue')
+    plt.xlabel('Model')
+    plt.ylabel('CV MSE')
+    plt.title('Cross-Validation MSE for Different Models')
+    plt.grid(True)
+    plt.savefig('Plots/cv_mse_results.png')
+    plt.show()
+
+    
+def main():
+    #plot_variance()
+    #plot_response_variable()
+    #plot_ridge_regression_data(apply_y_transformation=False, alpha=0.001, degree=1)
+    plot_cv_mse_results()
+
+    
+if __name__ == '__main__':
+    main()
+    

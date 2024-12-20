@@ -1,3 +1,6 @@
+import sys
+
+sys.path.append('/Users/maelysclerget/Desktop/ML/bio322_project/')
 
 import pandas as pd
 import numpy as np
@@ -66,5 +69,5 @@ def bayesian_ridge_regression(apply_y_transformation=False):
     submission = submission_file(y_test_pred)
     
     # Save submission to CSV
-    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/epfl-bio-322-2024/sample_submission_BAYESIAN_RIDGE.csv', index=False)
+    submission.to_csv('/Users/maelysclerget/Desktop/ML/bio322_project/Submissions-files/sample_submission_BAYESIAN_RIDGE.csv', index=False)
     print('Submission file saved successfully.')
